@@ -2,9 +2,11 @@
 la a podrá ser qualsevol nombre entre 1 i 25 que no sigui parell ni 13, pq ha de ser coprimer amb la L=26
 si està entre 2 s'agafa la més baixa
 
-a l’hora de desxifrar s’haurà de rumiar com trobar la c.
 
-- treure #placeholders
+- Canviar la ç per la c, ñ per n, Beta per "ss"...
 
-- pot ser que les funcions de xifrar i desxifrar substitucio polialfabetica estiguin malament
+- Mirar si peta quan comença amb un espai la frase
 
+- La Beta es normalitza amb r...
+
+- Treure paràmetres no utilitzats de funcions com xifrar i desxifrar

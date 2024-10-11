@@ -1,176 +1,220 @@
 import tkinter as tk
 import os
-from sympy import mod_inverse  # Necessitarem calcular la inversa modular
+from sympy import mod_inverse
 from tkinter import filedialog
+import math
+import unicodedata
 
-def seleccionar_archivo():
+def normalitzar_text(text):
+    # Descomponem els caràcters en la seva forma base (NFD) i eliminem els diacrítics
+    text_normalitzat = unicodedata.normalize('NFD', text)
+    text_sense_accents = ''.join(
+        lletra for lletra in text_normalitzat if unicodedata.category(lletra) != 'Mn'
+    )
+    
+    return text_sense_accents.lower()  # Convertim tot a minúscules
+
+def seleccionar_arxiu():
     root = tk.Tk()
-    root.withdraw()  # Oculta la ventana principal
+    root.withdraw()
     archivo_seleccionado = filedialog.askopenfilename()
     return archivo_seleccionado
 
-# Funció per llegir el fitxer d'entrada (missatge en clar o xifrat)
 def llegir_fitxer(fitxer):
     with open(fitxer, 'r', encoding='utf-8') as file:
         return file.read()
-
-# Funció per escriure el resultat en un fitxer de sortida (missatge xifrat o desxifrat)
+    
 def escriure_fitxer(nom_fitxer, contingut):
     with open(nom_fitxer, 'w', encoding='utf-8') as file:
         file.write(contingut)
 
-# Funció de substitució polialfabètica
-def substitucio_polialfabetica(text, a, c):
-    # Implementar la lògica de la substitució (placeholder per ara)
-    return text  # Això haurà de ser el text xifrat
-
-# Funció de transposició
-def transposicio(text, permutacio):
-    # Implementar la lògica de la transposició (placeholder per ara)
-    return text  # Això haurà de ser el text transposat
-
-def substitucio_polialfabetica(text, a, c):
+def xifrar_paraula(paraula):
     L = 26  # Mida de l'alfabet anglès
-    text_xifrat = ""
+    llargada = len(paraula)
     
-    for char in text:
-        if char.isalpha():  # Només xifrem les lletres
-            x = ord(char.lower()) - ord('a')  # Convertim el caràcter en un número (a=0, b=1, ..., z=25)
-            print(x)
-            y = (a * x + c) % L  # Fórmula de xifrat afí
-            text_xifrat += chr(y + ord('a'))  # Convertim el número de nou a caràcter
+    # Trobar el valor de 'a' (coprimer més proper a la llargada de la paraula)
+    a = max([i for i in range(1, L) if math.gcd(i, L) == 1 and i <= llargada], default=1)
+    
+    # Valor de 'c' (valor de la primera lletra)
+    c = ord(paraula[0].lower()) - ord('a')
+    
+    resultat = []
+    for lletra in paraula:
+        if lletra.isalpha():  # Si és una lletra de l'alfabet
+            x = ord(lletra.lower()) - ord('a')
+            xifrada = (a * x + c) % L
+            lletra_xifrada = chr(xifrada + ord('a'))
+            resultat.append(lletra_xifrada)
         else:
-            text_xifrat += char  # Els altres caràcters (espais, puntuació) no es xifren
+            resultat.append(lletra)
     
-    return text_xifrat
+    return ''.join(resultat)
 
-
-
-def desxifrar_substitucio_polialfabetica(text, a, c):
+def desxifrar_paraula(paraula, c):
     L = 26
-    a_inv = mod_inverse(a, L)  # Inversa modular de 'a'
-    text_desxifrat = ""
+    llargada = len(paraula)
     
-    for char in text:
-        if char.isalpha():  # Només desxifrem les lletres
-            y = ord(char.lower()) - ord('a')  # Convertim el caràcter en un número
-            x = (a_inv * (y - c)) % L  # Fórmula de desxifrat
-            text_desxifrat += chr(x + ord('a'))  # Convertim el número de nou a caràcter
+    # Trobar el valor de 'a' (coprimer més proper a la llargada de la paraula)
+    a = max([i for i in range(1, L) if math.gcd(i, L) == 1 and i <= llargada], default=1)
+    
+    # Inversa modular d'a
+    a_inv = mod_inverse(a, L)
+    
+    resultat = []
+    for lletra in paraula:
+        if lletra.isalpha():
+            y = ord(lletra.lower()) - ord('a')
+            original = (a_inv * (y - c)) % L
+            lletra_original = chr(original + ord('a'))
+            resultat.append(lletra_original)
         else:
-            text_desxifrat += char  # Els altres caràcters no es desxifren
+            resultat.append(lletra)
     
-    return text_desxifrat
+    return ''.join(resultat)
 
+def xifrar(text, fitxer_cs):
+    # Normalitzem el text abans de xifrar-lo
+    text = normalitzar_text(text)
+    
+    paraules = text.split()  # Separar el text en paraules
+    resultat = []
+    cs = []  # Llista per guardar els valors de c
 
-def transposicio(text, permutacio):
+    for paraula in paraules:
+        if paraula:  # Si la paraula no és buida
+            # Calculem 'c' com el valor de la primera lletra
+            c = ord(paraula[0].lower()) - ord('a')
+            cs.append(str(c))  # Guardem el valor de c com a string
+            resultat.append(xifrar_paraula(paraula))
+
+    # Guardem els valors de c en el fitxer
+    escriure_fitxer(fitxer_cs, ' '.join(cs))
+    
+    return ' '.join(resultat)
+
+def desxifrar(text, fitxer_cs):
+    # Llegir el fitxer amb els valors de 'c'
+    cs = llegir_fitxer(fitxer_cs).split()  # Llegim i separem els valors de c
+    paraules = text.split()  # Separar el text en paraules
+    resultat = []
+
+    for idx, paraula in enumerate(paraules):
+        if paraula and idx < len(cs):  # Assegurar que tenim un valor de c per a cada paraula
+            c = int(cs[idx])  # Convertim el valor de c a un enter
+            resultat.append(desxifrar_paraula(paraula, c))
+
+    return ' '.join(resultat)
+
+def transposar(text, permutacio):
     K = len(permutacio)
-    # Omplir la matriu amb les lletres del text
-    matriu = [list(text[i:i+K]) for i in range(0, len(text), K)]
+    # Omplir una matriu amb K columnes
+    matriu = [list(text[i:i+K].ljust(K)) for i in range(0, len(text), K)]
     
-    # Transposar el text seguint l'ordre de la permutació
-    text_transposat = ""
-    for fila in matriu:
-        for index in permutacio:
-            if index - 1 < len(fila):  # Verificar que la columna existeix
-                text_transposat += fila[index - 1]
-    
-    return text_transposat
+    # Apliquem la permutació, llegint per columnes segons l'ordre de la permutació
+    resultat = []
+    for col in permutacio:
+        for fila in matriu:
+            resultat.append(fila[col - 1])  # -1 perquè la permutació està basada en 1, no en 0
 
+    return ''.join(resultat)
 
-def desxifrar_transposicio(text, permutacio):
+def destransposar(text, permutacio):
     K = len(permutacio)
-    inv_permutacio = sorted(range(len(permutacio)), key=lambda x: permutacio[x])
+    n_files = len(text) // K + (1 if len(text) % K != 0 else 0)  # Nombre de files a la matriu
+
+    # Crear una matriu buida amb K columnes i tantes files com necessitem
+    matriu = [[''] * K for _ in range(n_files)]
     
-    # Crear la matriu amb el text transposat
-    matriu = [list(text[i:i+K]) for i in range(0, len(text), K)]
-    
-    # Desxifrar el text seguint l'ordre invers de la permutació
-    text_desxifrat = ""
+    # Apliquem la permutació inversa i col·loquem el text a la matriu
+    idx = 0
+    for col in permutacio:
+        for fila in range(n_files):
+            if idx < len(text):
+                matriu[fila][col - 1] = text[idx]  # Col·locar a la columna corresponent
+                idx += 1
+
+    # Llegim el text per files per restaurar el text original
+    resultat = []
     for fila in matriu:
-        for index in inv_permutacio:
-            if index < len(fila):  # Verificar que la columna existeix
-                text_desxifrat += fila[index]
-    
-    return text_desxifrat
+        resultat.extend(fila)
 
+    return ''.join(resultat).strip()  # Eliminem els espais extra al final
 
-# Funció per xifrar el missatge amb el criptosistema iteratiu
-def xifrar(text, N, permutacio_inicial):
-    permutacio = permutacio_inicial
+def xifrar_iteratiu(text, N, permutacio_inicial, fitxer_cs):
+    resultat = text
+    permutacio = permutacio_inicial[:]
+
     for i in range(N):
-        a = 5  # Aquest valor es pot calcular dinàmicament basat en la longitud
-        c = 3  # Placeholder; això s'hauria de calcular basat en la primera lletra
+        # Primer xifrem per substitució
+        resultat = xifrar(resultat, fitxer_cs)
         
-        # Aplicar la substitució
-        text = substitucio_polialfabetica(text, a, c)
+        # Després fem la transposició
+        resultat = transposar(resultat, permutacio)
         
-        # Aplicar la transposició
-        text = transposicio(text, permutacio)
-        
-        # Desplaçar la permutació a l'esquerra
+        # Fem un shift a l'esquerra a la permutació
         permutacio = permutacio[1:] + permutacio[:1]
-    
-    return text
 
-# Funció per desxifrar el missatge amb el criptosistema iteratiu
-def desxifrar(text, N, permutacio_inicial):
-    permutacio = permutacio_inicial
+    return resultat
+
+def desxifrar_iteratiu(text, N, permutacio_inicial, fitxer_cs):
+    resultat = text
+    permutacio = permutacio_inicial[:]
+
     for i in range(N):
-        # Aplicar la transposició inversa
-        text = desxifrar_transposicio(text, permutacio)
-        
-        # Aplicar el desxifrat de la substitució
-        a = 5  # Mismament s'ha de calcular
-        c = 3  # Placeholder
-        text = desxifrar_substitucio_polialfabetica(text, a, c)
-        
-        # Desplaçar la permutació a l'esquerra
+        # Fem el shift a la permutació inversa de la mateixa manera
         permutacio = permutacio[1:] + permutacio[:1]
-    
-    return text
 
+    # Iterem en ordre invers: primer destransposar, després desxifrar
+    for i in range(N):
+        # Desfem la transposició
+        resultat = destransposar(resultat, permutacio)
+        
+        # Desxifrem per substitució
+        resultat = desxifrar(resultat, fitxer_cs)
+        
+        # Desfem el shift a l'esquerra
+        permutacio = permutacio[-1:] + permutacio[:-1]
 
-# Funció principal del programa
+    return resultat
+
 def main():
-    fitxer_entrada = seleccionar_archivo()
-
+    fitxer_entrada = seleccionar_arxiu()
     directori_entrada = os.path.dirname(fitxer_entrada)
-    
-    #nom_fitxer_entrada = input("Nom del fitxer d'entrada: ")
     nom_fitxer_sortida = input("Nom del fitxer de sortida: ")
-    nom_fitxer_sortida = os.path.join(directori_entrada, nom_fitxer_sortida)
+    nom_fitxer_sortida_complet = os.path.join(directori_entrada, nom_fitxer_sortida)
+    
+    
+    # Separem el nom del fitxer de la seva extensió
+    nom_sense_extensio, extensio = os.path.splitext(fitxer_entrada)
+    nom_sortida_sense_extensio, extensio = os.path.splitext(nom_fitxer_sortida_complet)
+    
     mode = input("Xifrat o desxifrat? (x/d): ").lower()
     N = int(input("Nombre d'iteracions: "))
-
-    # Verificació que N sigui almenys 1
-    if N < 1:
-        print("El nombre d'iteracions ha de ser almenys 1.")
-        N = 1 #? exit?
-    
     permutacio_inicial = list(map(int, input("Introdueix la permutació inicial (separada per espais): ").split()))
 
-    while not permutacio_inicial:
-        print("La permutació inicial no pot ser buida.")
-        permutacio_inicial = list(map(int, input("Introdueix una permutació vàlida (separada per espais): ").split()))
-
-    
-    # Llegir el contingut del fitxer
     text = llegir_fitxer(fitxer_entrada)
 
-    # Processar segons el mode seleccionat
-    if mode == 'x':  # Mode xifrat
-        resultat = xifrar(text, N, permutacio_inicial)
+    if mode == 'x':
+        # Generem el fitxer dels valors de c com a <nom_sense_extensio>_c.txt
+        fitxer_cs = nom_sortida_sense_extensio + "_c.txt"
+        resultat = xifrar_iteratiu(text, N, permutacio_inicial, fitxer_cs)
         operacio = "Xifrat"
-    elif mode == 'd':  # Mode desxifrat
-        resultat = desxifrar(text, N, permutacio_inicial)  # Placeholder per a desxifrat
+    elif mode == 'd':
+        # Quan desxifrem, busquem el fitxer amb els valors de c
+        fitxer_cs = nom_sense_extensio + "_c.txt"
+        if not os.path.exists(fitxer_cs):
+            print(f"No s'ha trobat el fitxer de valors de c ({fitxer_cs}).")
+            return
+        resultat = desxifrar_iteratiu(text, N, permutacio_inicial, fitxer_cs)
         operacio = "Desxifrat"
     else:
         print("Mode no reconegut.")
         return
 
-    # Escriure el resultat en el fitxer de sortida
-    escriure_fitxer(nom_fitxer_sortida, resultat)
-    print(f"{operacio} completat. El resultat s'ha guardat a {nom_fitxer_sortida}.")
+    escriure_fitxer(nom_fitxer_sortida_complet, resultat)
+    print(f"{operacio} completat. El resultat s'ha guardat a {nom_fitxer_sortida_complet}.")
+    if mode == 'x':
+        print(f"Els valors de 'c' s'han guardat a {fitxer_cs}.")
 
 if __name__ == "__main__":
     main()
