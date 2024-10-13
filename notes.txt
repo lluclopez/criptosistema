@@ -10,3 +10,7 @@ si està entre 2 s'agafa la més baixa
 - La Beta es normalitza amb r...
 
 - Treure paràmetres no utilitzats de funcions com xifrar i desxifrar
+
+El problema està amb la transposició quan es vol fer més d'1 iteració.
+
+cuidado amb la β
