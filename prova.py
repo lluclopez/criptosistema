@@ -28,27 +28,36 @@ def escriure_fitxer(nom_fitxer, contingut):
     with open(nom_fitxer, 'w', encoding='utf-8') as file:
         file.write(contingut)
 
-# Funcions per xifrat i desxifrat per substitució
+# Funció per trobar el coprimer més proper a una llargada
+def coprimer_proper(llargada, L=26):
+    # Buscar el coprimer més proper a la llargada
+    coprimers = [i for i in range(1, L) if math.gcd(i, L) == 1]
+    diferencies = [(abs(llargada - cp), cp) for cp in coprimers]
+    # Triar el coprimer més proper, i en cas d'empat, el més petit
+    return min(diferencies)[1]
+
+# Funció de xifrat per substitució polialfabètica
 def xifrar_paraula(paraula):
     L = 26  # Mida de l'alfabet anglès
     llargada = len(paraula)
-    a = max([i for i in range(1, L) if math.gcd(i, L) == 1 and i <= llargada], default=1)
-    c = ord(paraula[0].lower()) - ord('a')
+    a = coprimer_proper(llargada)  # Trobar el coprimer més proper
+    c = ord(paraula[0].lower()) - ord('a')  # c és el codi de la primera lletra de la paraula
     resultat = []
     for lletra in paraula:
-        if lletra.isalpha():
-            x = ord(lletra.lower()) - ord('a')
+        if lletra.isalpha():  # Només xifrem lletres
+            x = ord(lletra.lower()) - ord('a')  # Convertir la lletra a un valor entre 0 i 25
             xifrada = (a * x + c) % L
-            resultat.append(chr(xifrada + ord('a')))
+            resultat.append(chr(xifrada + ord('a')))  # Tornar a convertir el valor xifrat en lletra
         else:
-            resultat.append(lletra)
+            resultat.append(lletra)  # Mantenir els caràcters que no són lletres
     return ''.join(resultat)
 
+# Funció per desxifrar paraula
 def desxifrar_paraula(paraula, c):
     L = 26
     llargada = len(paraula)
-    a = max([i for i in range(1, L) if math.gcd(i, L) == 1 and i <= llargada], default=1)
-    a_inv = mod_inverse(a, L)
+    a = coprimer_proper(llargada)  # Trobar el mateix coprimer que es va utilitzar per xifrar
+    a_inv = mod_inverse(a, L)  # Trobar l'invers modular d'a per desxifrar
     resultat = []
     for lletra in paraula:
         if lletra.isalpha():
@@ -59,8 +68,9 @@ def desxifrar_paraula(paraula, c):
             resultat.append(lletra)
     return ''.join(resultat)
 
+
 # Funció per xifrar i guardar els valors de 'c'
-def xifrar(text, fitxer_cs):
+def xifrar_subs(text, fitxer_cs):
     paraules = text.split()
     resultat = []
     cs = []
@@ -73,7 +83,7 @@ def xifrar(text, fitxer_cs):
     return ' '.join(resultat)
 
 # Funció per desxifrar utilitzant els valors de 'c'
-def desxifrar(text, fitxer_cs):
+def desxifrar_subs(text, fitxer_cs):
     cs = llegir_fitxer(fitxer_cs).split()
     paraules = text.split()
     resultat = []
@@ -83,72 +93,99 @@ def desxifrar(text, fitxer_cs):
             resultat.append(desxifrar_paraula(paraula, c))
     return ' '.join(resultat)
 
+# Funcions per transposició i destransposició
 def transposar(text, permutacio):
     K = len(permutacio)
-    # Omplir una matriu amb K columnes
-    matriu = [list(text[i:i+K].ljust(K)) for i in range(0, len(text), K)]
-    
-    # Apliquem la permutació, llegint per columnes segons l'ordre de la permutació
+    # Omplir la matriu amb tantes files com sigui necessari
+    matriu = [list(text[i:i + K]) for i in range(0, len(text), K)]
+
+    # Si l'última fila no està completa, la completem amb espais
+    if len(matriu[-1]) < K:
+        matriu[-1].extend([' '] * (K - len(matriu[-1])))
+
+    print("Matriu durant el xifrat:")
+    for fila in matriu:
+        print(fila)
+
     resultat = []
+    # Aplicar la permutació
     for col in permutacio:
         for fila in matriu:
-            resultat.append(fila[col - 1])  # -1 perquè la permutació està basada en 1, no en 0
+            resultat.append(fila[col - 1])  # -1 perquè la permutació està basada en 1
 
     return ''.join(resultat)
 
+
 def destransposar(text, permutacio):
     K = len(permutacio)
-    n_files = len(text) // K + (1 if len(text) % K != 0 else 0)  # Nombre de files a la matriu
+    n_files = len(text) // K + (1 if len(text) % K != 0 else 0)
 
     # Crear una matriu buida amb K columnes i tantes files com necessitem
     matriu = [[''] * K for _ in range(n_files)]
-    
-    # Col·locar el text xifrat a les columnes seguint la permutació
+
     idx = 0
+    # Recol·locar el text seguint la permutació
     for col in permutacio:
         for fila in range(n_files):
             if idx < len(text):
-                matriu[fila][col - 1] = text[idx]  # Col·locar a la columna corresponent
+                matriu[fila][col - 1] = text[idx]
                 idx += 1
 
-    # Llegim el text resultant per files per restaurar el text original
+    print("Matriu durant el desxifrat:")
+    for fila in matriu:
+        print(fila)
+
+    # Llegir per files per restaurar l'ordre original
     resultat = []
     for fila in matriu:
         resultat.extend(fila)
 
-    return ''.join(resultat).strip()  # Eliminem els espais extra al final
+    # Eliminar espais extra al final per evitar que desordeni el text desxifrat
+    return ''.join(resultat).rstrip()
 
 
 # Funció iterativa de xifrat
 def xifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_sortida_sense_extensio):
     resultat = text
     permutacio = permutacio_inicial[:]
+    
     for i in range(N):
-        #fitxer_cs_iter = f"{nom_fitxer_sortida_sense_extensio}_c{i+1}.txt"
-        #resultat = xifrar(resultat, fitxer_cs_iter)
+        fitxer_cs_iter = f"{nom_fitxer_sortida_sense_extensio}_c{i+1}.txt"
+        resultat = xifrar_subs(resultat, fitxer_cs_iter)
+        print(f"Iteració {i+1} - Permutació: {permutacio}")
         resultat = transposar(resultat, permutacio)
-        print(resultat+"|")
+        print(f"Resultat xifrat: {resultat}")
+        # Desplaçar la permutació cap a l'esquerra
         permutacio = permutacio[1:] + permutacio[:1]
+    
     return resultat
 
 # Funció iterativa de desxifrat
-def desxifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_entrada_sense_extensio):
+def desxifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_sortida_sense_extensio):
     resultat = text
     permutacio = permutacio_inicial[:]
+
+    # Ajustar la permutació inicial per desxifrar (moure cap a l'esquerra)
     for i in range(N-1):
         permutacio = permutacio[1:] + permutacio[:1]
+
+    # Desxifrar iterativament en ordre invers
     for i in reversed(range(N)):
-        print(f"Missatge xifrat: {resultat}")
-        print(f"Destransposició aplicada: {permutacio}")
-        resultat = destransposar(resultat, permutacio) #!
-        print(f"Missatge desxifrat (permutacio): {resultat}")
-        #fitxer_cs_iter = f"{nom_fitxer_entrada_sense_extensio}_c{i+1}.txt"
-        #if not os.path.exists(fitxer_cs_iter):
-         #   print(f"No s'ha trobat el fitxer de valors de c ({fitxer_cs_iter}).")
-          #  return
-        #resultat = desxifrar(resultat, fitxer_cs_iter)
-        print(f"Missatge desxifrat (substitució): {resultat}|")
+        print(f"Iteració {N-i} - Permutació: {permutacio}")
+        resultat = destransposar(resultat, permutacio)
+        print(f"Resultat desxifrat: {resultat}")
+
+
+        fitxer_cs_iter = f"{nom_fitxer_sortida_sense_extensio}_c{i+1}.txt"
+        if not os.path.exists(fitxer_cs_iter):
+            print(f"No s'ha trobat el fitxer de valors de c ({fitxer_cs_iter}).")
+            return
+        resultat = desxifrar_subs(resultat, fitxer_cs_iter)
+
+
+        # Desplaçar cap a la dreta la permutació
         permutacio = permutacio[-1:] + permutacio[:-1]
+    
     return resultat
 
 # Funció principal
