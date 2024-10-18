@@ -1,7 +1,7 @@
 import tkinter as tk
 import os
-from sympy import mod_inverse
 from tkinter import filedialog
+from sympy import mod_inverse
 import math
 import unicodedata
 
@@ -37,11 +37,10 @@ def coprimer_proper(llargada, L=26):
     return min(diferencies)[1]
 
 # Funció de xifrat per substitució polialfabètica
-def xifrar_paraula(paraula):
+def xifrar_paraula(paraula, c):
     L = 26  # Mida de l'alfabet anglès
     llargada = len(paraula)
     a = coprimer_proper(llargada)  # Trobar el coprimer més proper
-    c = ord(paraula[0].lower()) - ord('a')  # c és el codi de la primera lletra de la paraula
     resultat = []
     for lletra in paraula:
         if lletra.isalpha():  # Només xifrem lletres
@@ -57,7 +56,8 @@ def desxifrar_paraula(paraula, c):
     L = 26
     llargada = len(paraula)
     a = coprimer_proper(llargada)  # Trobar el mateix coprimer que es va utilitzar per xifrar
-    a_inv = mod_inverse(a, L)  # Trobar l'invers modular d'a per desxifrar
+    # a_inv = mod_inverse(a, L)
+    a_inv = pow(a, -1, L)  # Trobar l'invers modular d'a per desxifrar
     resultat = []
     for lletra in paraula:
         if lletra.isalpha():
@@ -78,7 +78,7 @@ def xifrar_subs(text, fitxer_cs):
         if paraula:
             c = ord(paraula[0].lower()) - ord('a')
             cs.append(str(c))
-            resultat.append(xifrar_paraula(paraula))
+            resultat.append(xifrar_paraula(paraula, c))
     escriure_fitxer(fitxer_cs, ' '.join(cs))
     return ' '.join(resultat)
 
@@ -96,12 +96,15 @@ def desxifrar_subs(text, fitxer_cs):
 # Funcions per transposició i destransposició
 def transposar(text, permutacio):
     K = len(permutacio)
-    # Omplir la matriu amb tantes files com sigui necessari
+    n_files = math.ceil(len(text) / K)  # Nombre de files necessàries
+    ultima_fila_completa = len(text) % K  # Columnes útils a l'última fila
+
+    # Crear la matriu amb les files necessàries
     matriu = [list(text[i:i + K]) for i in range(0, len(text), K)]
 
-    # Si l'última fila no està completa, la completem amb espais
+    # Si l'última fila no està completa, no afegim espais, només registrem quina part falta
     if len(matriu[-1]) < K:
-        matriu[-1].extend([' '] * (K - len(matriu[-1])))
+        matriu[-1].extend([''] * (K - len(matriu[-1])))
 
     print("Matriu durant el xifrat:")
     for fila in matriu:
@@ -111,22 +114,25 @@ def transposar(text, permutacio):
     # Aplicar la permutació
     for col in permutacio:
         for fila in matriu:
-            resultat.append(fila[col - 1])  # -1 perquè la permutació està basada en 1
-
+            if fila[col - 1] != '':  # Només afegim si no és un espai buit
+                resultat.append(fila[col - 1])
     return ''.join(resultat)
-
 
 def destransposar(text, permutacio):
     K = len(permutacio)
-    n_files = len(text) // K + (1 if len(text) % K != 0 else 0)
+    n_files = math.ceil(len(text) / K)  # Nombre de files necessàries
+    ultima_fila_completa = len(text) % K  # Columnes amb l'última fila completa
 
-    # Crear una matriu buida amb K columnes i tantes files com necessitem
+    # Crear una matriu buida amb les files necessàries
     matriu = [[''] * K for _ in range(n_files)]
 
     idx = 0
-    # Recol·locar el text seguint la permutació
+    # Omplir la matriu seguint la permutació
     for col in permutacio:
         for fila in range(n_files):
+            # Evitar omplir columnes que no tenen caràcter a l'última fila
+            if fila == n_files - 1 and col > ultima_fila_completa:
+                continue  # Saltar columnes incompletes
             if idx < len(text):
                 matriu[fila][col - 1] = text[idx]
                 idx += 1
@@ -135,14 +141,13 @@ def destransposar(text, permutacio):
     for fila in matriu:
         print(fila)
 
-    # Llegir per files per restaurar l'ordre original
+    # Llegir per files per reconstruir el text original
     resultat = []
     for fila in matriu:
         resultat.extend(fila)
 
-    # Eliminar espais extra al final per evitar que desordeni el text desxifrat
-    return ''.join(resultat).rstrip()
-
+    # Convertir la llista en text, sense modificar espais finals legítims
+    return ''.join(resultat)
 
 # Funció iterativa de xifrat
 def xifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_sortida_sense_extensio):
@@ -154,7 +159,7 @@ def xifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_sortida_sense_extens
         resultat = xifrar_subs(resultat, fitxer_cs_iter)
         print(f"Iteració {i+1} - Permutació: {permutacio}")
         resultat = transposar(resultat, permutacio)
-        print(f"Resultat xifrat: {resultat}")
+        print(f"Resultat xifrat: .{resultat}.")
         # Desplaçar la permutació cap a l'esquerra
         permutacio = permutacio[1:] + permutacio[:1]
     
@@ -173,7 +178,7 @@ def desxifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_sortida_sense_ext
     for i in reversed(range(N)):
         print(f"Iteració {N-i} - Permutació: {permutacio}")
         resultat = destransposar(resultat, permutacio)
-        print(f"Resultat desxifrat: {resultat}")
+        print(f"Resultat desxifrat: .{resultat}.")
 
 
         fitxer_cs_iter = f"{nom_fitxer_sortida_sense_extensio}_c{i+1}.txt"
@@ -204,7 +209,7 @@ def main():
 
     text = llegir_fitxer(fitxer_entrada)
     text = normalitzar_text(text)
-    print(text)
+    print('.'+text+'.')
 
     if mode == 'x':
         resultat = xifrar_iteratiu(text, N, permutacio_inicial, nom_sense_extensio_sortida)

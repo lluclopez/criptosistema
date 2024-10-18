@@ -1,4 +1,31 @@
+import tkinter as tk
+import os
+from tkinter import filedialog
 import math
+import unicodedata
+
+
+def normalitzar_text(text):
+    text_normalitzat = unicodedata.normalize('NFD', text)
+    text_sense_accents = ''.join(
+        lletra for lletra in text_normalitzat if unicodedata.category(lletra) != 'Mn'
+    )
+    return text_sense_accents.lower()
+
+# Funcions per seleccionar arxius i llegir/escriure fitxers
+def seleccionar_arxiu():
+    root = tk.Tk()
+    root.withdraw()
+    archivo_seleccionado = filedialog.askopenfilename()
+    return archivo_seleccionado
+
+def llegir_fitxer(fitxer):
+    with open(fitxer, 'r', encoding='utf-8') as file:
+        return file.read()
+
+def escriure_fitxer(nom_fitxer, contingut):
+    with open(nom_fitxer, 'w', encoding='utf-8') as file:
+        file.write(contingut)
 
 # Funció per trobar el coprimer més proper a una llargada
 def coprimer_proper(llargada, L=26):
@@ -100,50 +127,78 @@ def destransposar(text, permutacio):
         resultat.extend(fila)
     return ''.join(resultat).rstrip()
 
-# Funció principal
-def main():
-    # Demanar el text a xifrar
-    text = input("Introdueix el text: ")  # Mantindrem els espais en el text
-    N = int(input("Introdueix el nombre d'iteracions: "))
-    
-    # Demanar la permutació inicial
-    permutacio_inicial = list(map(int, input("Introdueix la permutació inicial (separada per espais): ").split()))
-    
-    # Fitxer on es guardaran els valors de 'c' per la substitució
-    fitxer_cs = "valors_cs.txt"
-    
-    # Xifrat per substitució polialfabètica
-    text_substituit = xifrar_subs(text, fitxer_cs)
-    print(f"\nText després del xifrat per substitució: {text_substituit}")
-    
-    # Xifrat per transposició
-    resultat = text_substituit
+def xifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_sortida_sense_extensio):
+    resultat = text
     permutacio = permutacio_inicial[:]
     
     for i in range(N):
-        print(f"\nIteració {i+1} - Permutació: {permutacio}")
+        fitxer_cs_iter = f"{nom_fitxer_sortida_sense_extensio}_c{i+1}.txt"
+        resultat = xifrar_subs(resultat, fitxer_cs_iter)
+        print(f"Iteració {i+1} - Permutació: {permutacio}")
         resultat = transposar(resultat, permutacio)
-        print(f"Text xifrat després de la iteració {i+1}: {resultat}")
+        print(f"Resultat xifrat: .{resultat}.")
+        # Desplaçar la permutació cap a l'esquerra
         permutacio = permutacio[1:] + permutacio[:1]
     
-    # Preguntar si es vol desxifrar
-    desxifrar = input("\nVols desxifrar el text? (s/n): ").lower() == 's'
+    return resultat
+
+# Funció iterativa de desxifrat
+def desxifrar_iteratiu(text, N, permutacio_inicial, nom_fitxer_sortida_sense_extensio):
+    resultat = text
+    permutacio = permutacio_inicial[:]
+
+    # Ajustar la permutació inicial per desxifrar (moure cap a l'esquerra)
+    for i in range(N-1):
+        permutacio = permutacio[1:] + permutacio[:1]
+
+    # Desxifrar iterativament en ordre invers
+    for i in reversed(range(N)):
+        print(f"Iteració {N-i} - Permutació: {permutacio}")
+        resultat = destransposar(resultat, permutacio)
+        print(f"Resultat desxifrat: .{resultat}.")
+
+
+        fitxer_cs_iter = f"{nom_fitxer_sortida_sense_extensio}_c{i+1}.txt"
+        if not os.path.exists(fitxer_cs_iter):
+            print(f"No s'ha trobat el fitxer de valors de c ({fitxer_cs_iter}).")
+            return
+        resultat = desxifrar_subs(resultat, fitxer_cs_iter)
+
+
+        # Desplaçar cap a la dreta la permutació
+        permutacio = permutacio[-1:] + permutacio[:-1]
     
-    if desxifrar:
-        permutacio = permutacio_inicial[:]
-        for i in range(N-1):
-            permutacio = permutacio[1:] + permutacio[:1]
-        for i in reversed(range(N)):
-            print(f"\nIteració {N-i} (Desxifrant) - Permutació: {permutacio}")
-            resultat = destransposar(resultat, permutacio)
-            print(f"Text desxifrat després de la iteració {N-i}: {resultat}")
-            permutacio = permutacio[-1:] + permutacio[:-1]
-        
-        # Desxifrat per substitució
-        resultat = desxifrar_subs(resultat, fitxer_cs)
-        print(f"\nText després de desxifrar per substitució: {resultat}")
+    return resultat
+
+def main():
+    fitxer_entrada = seleccionar_arxiu()
+    directori_entrada = os.path.dirname(fitxer_entrada)
+    nom_fitxer_sortida = input("Nom del fitxer de sortida: ")
+    nom_fitxer_sortida_complet = os.path.join(directori_entrada, nom_fitxer_sortida)
     
-    print(f"\nText final: {resultat}")
+    nom_sense_extensio_entrada, extensio = os.path.splitext(fitxer_entrada)
+    nom_sense_extensio_sortida, extensio_sortida = os.path.splitext(nom_fitxer_sortida_complet)
+    
+    mode = input("Xifrat o desxifrat? (x/d): ").lower()
+    N = int(input("Nombre d'iteracions: "))
+    permutacio_inicial = list(map(int, input("Introdueix la permutació inicial (separada per espais): ").split()))
+
+    text = llegir_fitxer(fitxer_entrada)
+    text = normalitzar_text(text)
+    print(text)
+
+    if mode == 'x':
+        resultat = xifrar_iteratiu(text, N, permutacio_inicial, nom_sense_extensio_sortida)
+        operacio = "Xifrat"
+    elif mode == 'd':
+        resultat = desxifrar_iteratiu(text, N, permutacio_inicial, nom_sense_extensio_entrada)
+        operacio = "Desxifrat"
+    else:
+        print("Mode no reconegut.")
+        return
+
+    escriure_fitxer(nom_fitxer_sortida_complet, resultat)
+    print(f"{operacio} completat. El resultat s'ha guardat a {nom_fitxer_sortida_complet}.")
 
 if __name__ == "__main__":
     main()
